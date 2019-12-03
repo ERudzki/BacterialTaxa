@@ -1,25 +1,30 @@
-data=read.csv("TaxaTest.csv")
+#install.packages("lookupTable")
+library(lookupTable)
+#install.packages("plyr")
+library(plyr)
+
+data=read.csv("feature-table-6.csv")
 #Remove controls as log(0)=Inf
-datasub<-subset(data, auc!=0)
-taxakey=read.csv("Level6TaxaMetadata.csv")
+datasub<-subset(data, auc_continuous!=0)
+taxakey=read.csv("Level6TaxaMetadata1.csv")
 
 #lookup do.call
 
 #Store the column names of all the taxa into a variable (-1-18)
-Taxa<-colnames(datasub[-c(1:18)])
+Taxa<-colnames(datasub[-c(1:26)])
 #things tested variable (list)
 #thingsTested<-c("sex","line","sex:line","batch","behav","TaxaN")
 #I don't know why thingsTested was not working in the below command
-x<-data.frame(row.names= c("sex","line","batch","behav","TaxaN","sex:line"))
+x<-data.frame(row.names= c("sex","line","batch","behav","TaxaN","seqbatch","sex:line"))
 
 for(i in Taxa){
   tempcolindex<-as.numeric(substr(i,5,nchar(i)))
-  tempcolindex<- tempcolindex+18
-  tempdatasub<-subset(datasub, select = c(1:18,tempcolindex))
-  names(tempdatasub)[19]<-"TaxaN"
-  templm<-lm(log(auc)~sex+line+sex:line+batch+behav+TaxaN, data=tempdatasub)
+  tempcolindex<- tempcolindex+26
+  tempdatasub<-subset(datasub, select = c(1:26,tempcolindex))
+  names(tempdatasub)[27]<-"TaxaN"
+  templm<-lm(log(auc_continuous)~sex+line+sex:line+batch+behav+TaxaN+seqbatch, data=tempdatasub)
   tempanova<-anova(templm)
-  x<-cbind(x,tempanova$`Pr(>F)`[1:6])
+  x<-cbind(x,tempanova$`Pr(>F)`[1:7])
 }
 #Have to organize the row names by the order the ANOVA outputs, otherwise values will not match their name
 #The NAs are in the sex:line row because the ANOVA pops the value for that up where the TaxaN was
@@ -27,22 +32,40 @@ colnames(x)<-Taxa
 #Filtering out the NA taxa should still result in removing the singularity-taxa.. since the NA result due to that?
 removedx<-na.omit(t(x))
 #removedx<-t(removedx)
+#write.table(removedx, "pvalR.txt", sep = "\t")
 
-#How many taxa have a p value less than or equal to 0.02?
-tm<-removedx[,"TaxaN"]<=0.05
+#BonFeroni correction - most conservative pg 457
+#divide all p values by # of tests
+#lose a lot of power
+#Look at this leaflet for FDR as well, and look up that paper
+#plot any two variables. AUC vs reads
+
+#Calculate Bonferroni p value by # of taxa left in removedx
+a<-0.05/833
+
+#How many taxa have a p value less than or equal to a?
+tm<-removedx[,"TaxaN"]<=a
 table(tm)["TRUE"]
-
+print(tm)
 #Which taxa are those?
-sigdata<-which(removedx[,"TaxaN"] <=0.05, arr.ind=TRUE)
+sigdata<-which(removedx[,"TaxaN"] <=a, arr.ind=TRUE)
 #list of row numbers where this is true
 print(sigdata)
 #returns row numbers as well as Taxa numbers
+#In this case, Taxa952 from row 771
 
 #Subset removedx by including only rows in sigdata
-tempsubfinal<-removedx[sigdata,]
-subfinal<-t(tempsubfinal)
+tempsubsig<-removedx[sigdata, , drop=FALSE]
+#print(tempsubsig)
+subsig<-t(tempsubsig)
+#print(subsig)
 
-help(which)
+#Rename Taxa by taxa name
+subsig2<-data.frame(subsig)
+namedsig<-setnames(subsig2, as.character(taxakey$ID), as.character(taxakey$Name), skip_absent = TRUE)
+
+write.table(namedsig, "namedsig2.txt", sep="\t")
+#----------------
 #make a temp column index (as.numeric) substr i, 5, nchar(i)
 #then add 18 to the temp column index (this will tell it to LOOK at that column for that taxa data)
 #build a temp data frame (datasub) including c 1:18, plus the column I care about tempcolumnindex
