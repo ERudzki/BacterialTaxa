@@ -24,16 +24,25 @@ ggplotRegression <- function(dat, xvar, yvar) {
   fml <- paste(yvar, "~", xvar)
   fit<-lm(fml,dat)
   ggplot(data=datasub, aes(x=observed_otus,y=auc)) + geom_point() +
+    labs(x = "Observed OTUs") +
+    labs(y = "log AUC") +
+    labs(title = "Analyzing the relationship between parasite infection \n severity and skin bacterial microbiome diversity \n in P. reticulata", face = "bold") +
     scale_y_log10(breaks = trans_breaks("log10",function(x) 10^x),
                   labels = trans_format("log10", math_format(10^.x))) +
     geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95, formula = y ~ x) +
-    geom_text(aes(120, 1000, label = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
-                                           "Intercept =",signif(fit$coef[[1]],5 ),
-                                           " Slope =",signif(fit$coef[[2]], 5),
-                                           " P =",signif(summary(fit)$coef[2,4], 5))))
+    geom_text(aes(120, 3, label = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                                           " P =",signif(summary(fit)$coef[2,4], 5)), size = 6)) +
+    geom_text(aes(120, 2, label = paste ("Intercept =",signif(fit$coef[[1]],5 ),
+                                           " Slope =",signif(fit$coef[[2]], 5)), size = 6))+
+    theme(axis.text = element_text(size = 12))+
+    theme(axis.title = element_text(size = 15),
+          legend.position='none')+
+    theme(plot.title = element_text(hjust = 0.5, size = 15))
 }
 ggplotRegression(datasub, "auc", "observed_otus")
 dev.off()
+
+help(ggtitle)
 
 #FULL-DATASET---------------
 #Store the column names of all the taxa into a variable (-1-26) excluding metadata columns
